@@ -1,0 +1,11 @@
+[project]
+name = "habatteryui"
+version = "0.1.0"
+description = "Home Assistant Battery Terminal UI"
+readme = "README.md"
+requires-python = ">=3.12.3"
+dependencies = [
+    "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+    "textual>=8.2.7",
+]
