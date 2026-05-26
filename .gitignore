@@ -1,0 +1,49 @@
+# === UV Specific Layouts ===
+.venv/
+.uv/
+*.pkg/
+
+# === DO NOT IGNORE uv.lock ===
+# uv.lock should be committed to Git to ensure exact, reproducible builds
+# !uv.lock
+
+# === Python Build Artifacts & Bytecode ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# === Environment Configuration & Secrets ===
+.env
+.envrc
+.vars
+
+# === Inline Scripts & Tool Cache ===
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# === Runtime Metadata ===
+# Ignore specific local Python version pointers if you use tools like pyenv
+# .python-version
