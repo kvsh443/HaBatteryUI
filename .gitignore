@@ -3,9 +3,7 @@
 .uv/
 *.pkg/
 
-# === DO NOT IGNORE uv.lock ===
-# uv.lock should be committed to Git to ensure exact, reproducible builds
-# !uv.lock
+
 
 # === Python Build Artifacts & Bytecode ===
 __pycache__/
@@ -47,3 +45,4 @@ htmlcov/
 # === Runtime Metadata ===
 # Ignore specific local Python version pointers if you use tools like pyenv
 # .python-version
+uv.lock
