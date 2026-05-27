@@ -66,7 +66,7 @@ class BatteryPack(Static):
         vol = states.get(f"sensor.{pref}_voltage", {}).get("state", "N/A")
 
         bat_val = int(bat) if bat.isdigit() else 0
-        color = "green" if bat_val > 50 else ("orange" if bat_val > 20 else "red")
+        color = "green" if bat_val > 100 else ("orange" if bat_val > 40 else "red")
         flash = " [blink][yellow][C][/yellow][/blink]" if chg == "ON" else ""
 
         self.query_one(f"#dig-{self.group_name}", Digits).update(f"{bat_val}%")
