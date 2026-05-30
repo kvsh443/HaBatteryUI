@@ -1,4 +1,9 @@
 import os
+
+# Force Ubuntu terminal/SSH to render full 24-bit True Color
+os.environ["COLORTERM"] = "truecolor"
+os.environ["FORCE_COLOR"] = "1"
+
 import requests
 import urllib3
 from dotenv import load_dotenv
