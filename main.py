@@ -1,9 +1,5 @@
 import os
-
-# Force Ubuntu terminal/SSH to render full 24-bit True Color
-os.environ["COLORTERM"] = "truecolor"
-os.environ["FORCE_COLOR"] = "1"
-
+import sys
 import requests
 import urllib3
 from dotenv import load_dotenv
@@ -12,6 +8,12 @@ from textual.containers import Grid
 from textual.widgets import Header, Footer, Static, Digits, ProgressBar
 from textual.containers import Grid, Horizontal, Vertical
 from rich.markup import escape
+
+# Force Ubuntu terminal/SSH to render full 24-bit True Color
+os.environ["COLORTERM"] = "truecolor"
+os.environ["TERM"] = "xterm-256color"
+os.environ["FORCE_COLOR"] = "1"
+sys.stdout.reconfigure(encoding="utf-8")
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
