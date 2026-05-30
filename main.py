@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from textual.app import App, ComposeResult
 from textual.containers import Grid
 from textual.widgets import Header, Footer, Static, Digits
+from rich.markup import escape
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -37,17 +38,16 @@ class BatteryPack(Static):
 
     def compose(self) -> ComposeResult:
         yield Static(f"[b]System {self.group_name}[/b]", classes="pack-title")
-        yield Digits("00%", id=f"dig-{self.group_name}", classes="pack-digits")
+        yield Digits("00", id=f"dig-{self.group_name}", classes="pack-digits")
         yield Static(
             "Loading data...", id=f"stats-{self.group_name}", classes="pack-stats"
         )
 
     def display_error(self, message):
         """Displays error logs natively in the specific panel block."""
-        # Truncate messages to keep the panel structure neat
         clean_msg = str(message)[:60].replace("\n", " ")
         self.query_one(f"#stats-{self.group_name}", Static).update(
-            f"[red]Err: {clean_msg}[/]"
+            f"[red]Err: {escape(clean_msg)}[/]"
         )
 
     def update_data(self, states):
@@ -69,10 +69,10 @@ class BatteryPack(Static):
         color = "green" if bat_val > 100 else ("orange" if bat_val > 40 else "red")
         flash = " [blink][yellow][C][/yellow][/blink]" if chg == "ON" else ""
 
-        self.query_one(f"#dig-{self.group_name}", Digits).update(f"{bat_val}%")
+        self.query_one(f"#dig-{self.group_name}", Digits).update(f"{bat_val}")
 
         stats_text = (
-            f"[{color}]* Status:[/] {'Charging' if chg == 'ON' else 'Discharging'}{flash}\n"
+            f"[{color}]*[b]* Status:[/b] {'Charging' if chg == 'ON' else 'Discharging'}{flash}\n"
             f"  P: {pwr} W  |  V: {vol} V  |  I: {cur} A\n"
             f"  Cycles: {cyc}  |  Energy: {nrg} kWh\n"
             f"  Temp: {tmp} C  |  Run: {run} min"
@@ -135,13 +135,11 @@ class BatteryApp(App):
                             states_lookup
                         )
                 except ValueError:
-                    # Capture case where HTTP 200 is returned but the text body isn't JSON
                     for g_id in BATTERY_GROUPS.keys():
                         self.query_one(f"#pack-{g_id}", BatteryPack).display_error(
                             f"Bad JSON: {r.text[:30]}"
                         )
             else:
-                # Capture standard server error pages (404, 500, etc.)
                 for g_id in BATTERY_GROUPS.keys():
                     self.query_one(f"#pack-{g_id}", BatteryPack).display_error(
                         f"HTTP {r.status_code}: {r.text[:20]}"
