@@ -4,7 +4,7 @@ import urllib3
 from dotenv import load_dotenv
 from textual.app import App, ComposeResult
 from textual.containers import Grid
-from textual.widgets import Header, Footer, Static, Digits
+from textual.widgets import Header, Footer, Static, Digits, ProgressBar
 from textual.containers import Grid, Horizontal, Vertical
 from rich.markup import escape
 
@@ -43,19 +43,54 @@ class BatteryPack(Static):
             f" 🔋 [bold white]System {self.group_name}[/]", classes="pack-title"
         )
         with Horizontal():
+            # Left column: Battery & Status
             with Vertical(classes="gauge-container"):
-                yield Static("", id=f"gauge-{self.group_name}", classes="gauge-arc")
+                yield ProgressBar(
+                    total=100,
+                    show_eta=False,
+                    show_percentage=False,
+                    id=f"bar-{self.group_name}",
+                )
                 yield Digits("00", id=f"dig-{self.group_name}", classes="pack-digits")
-            with Vertical(classes="stats-container"):
-                yield Static(
-                    "Loading details...",
-                    id=f"stats-{self.group_name}",
-                    classes="pack-stats",
+                yield Static("", id=f"status-{self.group_name}", classes="status-badge")
+                yield Static("TEMP (C)", classes="metric-header temp-header")
+                yield Digits(
+                    "00.0", id=f"tmp-dig-{self.group_name}", classes="metric-digits"
+                )
+
+            # Mid column: Power & Voltage & Run
+            with Vertical(classes="col-mid"):
+                yield Static("POWER (W)", classes="metric-header")
+                yield Digits(
+                    "0.0", id=f"pwr-dig-{self.group_name}", classes="metric-digits"
+                )
+                yield Static("VOLTAGE (V)", classes="metric-header")
+                yield Digits(
+                    "0.0", id=f"vol-dig-{self.group_name}", classes="metric-digits"
+                )
+                yield Static("RUN (MIN)", classes="metric-header")
+                yield Digits(
+                    "0.0", id=f"run-dig-{self.group_name}", classes="metric-digits"
+                )
+
+            # Right column: Current, Energy & Cycles
+            with Vertical(classes="col-right"):
+                yield Static("CURRENT (A)", classes="metric-header")
+                yield Digits(
+                    "0.00", id=f"cur-dig-{self.group_name}", classes="metric-digits"
+                )
+                yield Static("ENERGY (KWH)", classes="metric-header")
+                yield Digits(
+                    "0.0", id=f"nrg-dig-{self.group_name}", classes="metric-digits"
+                )
+                yield Static("CYCLES", classes="metric-header")
+                yield Digits(
+                    "0", id=f"cyc-dig-{self.group_name}", classes="metric-digits"
                 )
 
     def display_error(self, message):
         clean_msg = str(message)[:60].replace("\n", " ")
-        self.query_one(f"#stats-{self.group_name}", Static).update(
+        self.query_one(f"#status-{self.group_name}", Static).update(
             f"[red]Err: {escape(clean_msg)}[/]"
         )
 
@@ -64,72 +99,67 @@ class BatteryPack(Static):
 
         def fmt(val, dec=1):
             try:
+                # Digits widget only supports numbers, decimals, spaces, and '-'
                 return f"{float(val):.{dec}f}"
             except (ValueError, TypeError):
-                return "N/A"
+                return "0.0"
 
         bat = states.get(f"sensor.{pref}_battery", {}).get("state", "0")
         chg = (
             states.get(f"binary_sensor.{pref}_charging", {}).get("state", "off").upper()
         )
-        cur = fmt(states.get(f"sensor.{pref}_current", {}).get("state", "N/A"), 2)
+        cur = fmt(states.get(f"sensor.{pref}_current", {}).get("state", "0"), 2)
         cyc = fmt(states.get(f"sensor.{pref}_cycles", {}).get("state", "0"), 0)
-        pwr = fmt(states.get(f"sensor.{pref}_power", {}).get("state", "N/A"), 1)
-        run = fmt(states.get(f"sensor.{pref}_runtime", {}).get("state", "N/A"), 2)
-        nrg = fmt(states.get(f"sensor.{pref}_stored_energy", {}).get("state", "N/A"), 1)
-        tmp = fmt(states.get(f"sensor.{pref}_temperature", {}).get("state", "N/A"), 1)
-        vol = fmt(states.get(f"sensor.{pref}_voltage", {}).get("state", "N/A"), 1)
+        pwr = fmt(states.get(f"sensor.{pref}_power", {}).get("state", "0"), 1)
+        run = fmt(states.get(f"sensor.{pref}_runtime", {}).get("state", "0"), 1)
+        nrg = fmt(states.get(f"sensor.{pref}_stored_energy", {}).get("state", "0"), 1)
+        tmp = fmt(states.get(f"sensor.{pref}_temperature", {}).get("state", "0"), 1)
+        vol = fmt(states.get(f"sensor.{pref}_voltage", {}).get("state", "0"), 1)
 
         bat_val = int(bat) if bat.isdigit() else 0
         bat_color = (
             "#48C774" if bat_val >= 75 else ("#FFDD57" if bat_val >= 35 else "#F14668")
         )
 
-        # Power bar visual representation
-        pwr_val = abs(float(pwr)) if pwr != "N/A" else 0
-        bar_filled = min(int(pwr_val / 30), 8)
-        pwr_bar = (
-            f" [{'#48C774' if chg == 'ON' else '#FFDD57'}]"
-            + "█" * bar_filled
-            + "░" * (8 - bar_filled)
-            + "[/]"
-        )
+        # Update all 8 individual Digits widgets directly
+        self.query_one(f"#dig-{self.group_name}", Digits).update(f"{bat_val}%")
+        self.query_one(f"#dig-{self.group_name}", Digits).styles.color = bat_color
 
-        # 1. Update native Digits for maximum font visibility
-        digits_widget = self.query_one(f"#dig-{self.group_name}", Digits)
-        digits_widget.update(f"{bat_val}%")
-        digits_widget.styles.color = bat_color
+        self.query_one(f"#tmp-dig-{self.group_name}", Digits).update(tmp)
+        self.query_one(f"#tmp-dig-{self.group_name}", Digits).styles.color = "#FF8080"
 
-        # 2. Dynamic Segment Coloring for the gauge arc above the digits
-        bg_color = "#2A3B4D"
-        c1 = bat_color if bat_val > 0 else bg_color
-        c2 = bat_color if bat_val >= 25 else bg_color
-        c3 = bat_color if bat_val >= 50 else bg_color
-        c4 = bat_color if bat_val >= 75 else bg_color
+        pwr_wid = self.query_one(f"#pwr-dig-{self.group_name}", Digits)
+        pwr_wid.update(pwr)
+        pwr_wid.styles.color = "#00D2FF" if chg == "ON" else "#FFDD57"
 
-        gauge_text = f"   [{c2}]▄▄████████▄▄[/]\n [{c1}]▄██▀▀[/]        [{c3}]▀▀██▄[/]"
-        self.query_one(f"#gauge-{self.group_name}", Static).update(gauge_text)
+        self.query_one(f"#vol-dig-{self.group_name}", Digits).update(vol)
+        self.query_one(f"#vol-dig-{self.group_name}", Digits).styles.color = "#E1E8ED"
 
-        # 3. Dynamic Side Details
+        self.query_one(f"#run-dig-{self.group_name}", Digits).update(run)
+        self.query_one(f"#run-dig-{self.group_name}", Digits).styles.color = "#85A5FF"
+
+        self.query_one(f"#cur-dig-{self.group_name}", Digits).update(cur)
+        self.query_one(f"#cur-dig-{self.group_name}", Digits).styles.color = "#FFD666"
+
+        self.query_one(f"#nrg-dig-{self.group_name}", Digits).update(nrg)
+        self.query_one(f"#nrg-dig-{self.group_name}", Digits).styles.color = "#73D13D"
+
+        self.query_one(f"#cyc-dig-{self.group_name}", Digits).update(cyc)
+        self.query_one(f"#cyc-dig-{self.group_name}", Digits).styles.color = "#B37FEB"
+
+        # Update responsive native ProgressBar
+        bar_widget = self.query_one(f"#bar-{self.group_name}", ProgressBar)
+        bar_widget.progress = bat_val
+        bar_widget.styles.bar_complete_color = bat_color
+        bar_widget.styles.bar_background_color = "#2A3B4D"
+
+        # Dynamic Status Badge
         status_text = (
-            "[bold #48C774] CHARGING ⬆[/]"
+            "[bold #48C774]CHARGING[/]"
             if chg == "ON"
-            else "[bold #FFDD57] DISCHARGING ⬇[/]"
+            else "[bold #FFDD57]DISCHARGING[/]"
         )
-        stats_text = (
-            f"       {status_text}\n\n"
-            f"[bold #8F9CA6]POWER & CURRENT[/]\n"
-            f"P: [bold white]{pwr} W[/] {pwr_bar}\n"
-            f"I: [bold white]{cur} A[/]\n\n"
-            f"⚡ [bold #00D2FF]Energy: {nrg} kWh[/]\n"
-            f"[bold #8F9CA6]VOLTAGE & LIFE[/]\n"
-            f"V: [bold white]{vol} V[/] [#30404D][/]\n"
-            f"Cycles: [bold white]{cyc}[/]\n\n"
-            f"[bold #8F9CA6]OPERATING CONDITIONS[/]\n"
-            f"🌡️ [white]Temp:[/ white] [bold white]{tmp}°C[/] [red]■■[/]\n"
-            f"⏱️ [white]Run:[/ white]  [bold white]{run} min[/]"
-        )
-        self.query_one(f"#stats-{self.group_name}", Static).update(stats_text)
+        self.query_one(f"#status-{self.group_name}", Static).update(status_text)
 
 
 class BatteryApp(App):
@@ -163,28 +193,45 @@ class BatteryApp(App):
         padding: 0 1;
         height: 1;
     }
-    .gauge-container {
-        width: 45%;
+        .gauge-container {
+        width: 30%;
         align: center middle;
         text-align: center;
-        padding-top: 1;
+        padding: 1 1 0 1;
     }
-    .gauge-arc {
-        text-align: center;
-        height: 2;
+    ProgressBar {
+        width: 100%;
+        height: 1;
+        margin-bottom: 1;
     }
     .pack-digits {
         text-align: center;
-        margin: 0;
-        padding: 0;
         height: 3;
+        margin-bottom: 1;
     }
-    .stats-container {
-        width: 55%;
+    .status-badge {
+        text-align: center;
+        height: 1;
+    }
+    .col-mid {
+        width: 35%;
         padding: 1 1 0 1;
     }
-    .pack-stats {
-        color: #A7B6C2;
+    .col-right {
+        width: 35%;
+        padding: 1 1 0 1;
+    }
+    .metric-header {
+        color: #8F9CA6;
+        text-style: bold;
+        height: 1;
+    }
+    .metric-digits {
+        height: 3;
+        margin-bottom: 1;
+    }
+    .temp-header {
+        margin-top: 1;
     }
     """
 
