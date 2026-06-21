@@ -94,6 +94,10 @@ class BatteryPack(Static):
                 yield Digits(
                     "0", id=f"cyc-dig-{self.group_name}", classes="metric-digits"
                 )
+        yield Static(" CELL VOLTAGES (V)", classes="cells-header")
+        yield Static(
+            "No data", id=f"cells-{self.group_name}", classes="cells-container"
+        )
 
     def display_error(self, message):
         clean_msg = str(message)[:60].replace("\n", " ")
@@ -167,6 +171,38 @@ class BatteryPack(Static):
             else "[bold #FFDD57]DISCHARGING[/]"
         )
         self.query_one(f"#status-{self.group_name}", Static).update(status_text)
+        cells_state = states.get(f"sensor.{pref}_delta_voltage", {})
+        cell_voltages = cells_state.get("attributes", {}).get("cell_voltages", [])
+
+        if isinstance(cell_voltages, list) and cell_voltages:
+            try:
+                # Convert items to floats to safely find min and max values
+                floats = [float(v) for v in cell_voltages]
+                min_v = min(floats)
+                max_v = max(floats)
+
+                formatted = []
+                for v in floats:
+                    v_str = f"{v:.3f}"
+                    if v == min_v:
+                        # Highlight lowest cell in red
+                        formatted.append(f"[bold #F14668]{v_str}[/]")
+                    elif v == max_v:
+                        # Highlight highest cell in green
+                        formatted.append(f"[bold #48C774]{v_str}[/]")
+                    else:
+                        # Display normal cells in standard text color
+                        formatted.append(f"[#8F9CA6]{v_str}[/]")
+
+                cells_markup = "  ".join(formatted)
+            except Exception:
+                # Fallback if list items are not numbers
+                cells_markup = "  ".join(str(v) for v in cell_voltages)
+        else:
+            cells_markup = "[#4A5A6A]No Cell Data Available[/]"
+
+        # Push formatted text into the static widget
+        self.query_one(f"#cells-{self.group_name}", Static).update(cells_markup)
 
 
 class BatteryApp(App):
@@ -239,6 +275,18 @@ class BatteryApp(App):
     }
     .temp-header {
         margin-top: 1;
+    }
+    .cells-header {
+        color: #8F9CA6;
+        text-style: bold;
+        margin: 1 0 0 2;
+        height: 1;
+    }
+    .cells-container {
+        background: #11161B;
+        padding: 0 1;
+        margin: 0 2 1 2;
+        height: 3;
     }
     """
 
